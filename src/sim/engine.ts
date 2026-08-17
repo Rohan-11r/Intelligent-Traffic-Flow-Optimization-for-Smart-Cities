@@ -434,6 +434,8 @@ export class TrafficEngine {
     const r = this.net.linkBetween(b, a)
     if (f) f.blocked = on
     if (r) r.blocked = on
+    // clear the segment straight away so no vehicle is left committed to it
+    if (on) this.enforceClosures()
   }
 
   log(kind: EventKind, node: string, text: string) {
@@ -457,6 +459,7 @@ export class TrafficEngine {
     this.spawn(dt)
     this.signals(dt)
     this.moveVehicles(dt)
+    this.enforceClosures()
     this.measureNodes()
     this.shadowStep(dt)
     this.emergencyStep(dt)
@@ -1292,6 +1295,9 @@ export class TrafficEngine {
     for (let i = 0; i < sample; i++) {
       const v = this.vehicles[(i * 7 + Math.floor(this.t)) % this.vehicles.length]
       if (!v || v.emergency) continue
+      // the current hop is retained as the first leg below, so it must be open;
+      // a vehicle stranded on a closed hop is enforceClosures()' job
+      if (this.onClosedHop(v)) continue
       const dest = v.route[v.route.length - 1]
       const here = v.route[v.idx]
       if (v.idx + 2 >= v.route.length) continue
@@ -1372,10 +1378,73 @@ export class TrafficEngine {
     return tr * GRID + tc + 1
   }
 
+  /**
+   * A closed segment must never be driven through — including by vehicles that
+   * were already on it at the moment it closed.
+   *
+   * Those vehicles cannot teleport off the road, so they are turned back at the
+   * intersection they entered from and re-planned around the closure, which is
+   * what actually happens when an incident closes a road under live traffic.
+   * Without this they sit on the blocked link at speed 0 forever, still holding
+   * a route that crosses the closure — neither reroute pass touches a vehicle's
+   * CURRENT hop, only the hops ahead of it.
+   *
+   * Runs every tick and again the moment an edge closes, so the invariant holds
+   * for closures from any source: operator incidents, scenario road works and
+   * timed mid-run events alike.
+   */
+  private enforceClosures() {
+    for (const link of this.net.links) {
+      if (!link.blocked || link.vehicles.length === 0) continue
+      const upstream = link.from
+      for (let i = link.vehicles.length - 1; i >= 0; i--) {
+        const v = link.vehicles[i]
+        const dest = v.route[v.route.length - 1]
+        const alt =
+          dest === upstream ? [] : shortestPath(this.net, upstream, dest, (l) => this.linkCost(l))
+        const first = alt.length > 1 ? this.net.linkBetween(alt[0], alt[1]) : undefined
+
+        if (!first || first.blocked) {
+          // the destination is unreachable while this segment is closed — the
+          // trip is abandoned at the closure rather than left driving into it
+          link.vehicles.splice(i, 1)
+          const gi = this.vehicles.indexOf(v)
+          if (gi >= 0) this.vehicles.splice(gi, 1)
+          continue
+        }
+
+        // the fixed-time baseline has no rerouting, so it would still carry this
+        // trip through the closure — credit its arrival stream before diverting
+        this.creditBaselineDemand(v)
+        link.vehicles.splice(i, 1)
+        v.route = alt
+        v.idx = 0
+        v.linkId = first.id
+        v.pos = 0
+        v.speed = 0
+        first.vehicles.push(v)
+        if (!v.rerouted) {
+          v.rerouted = true
+          this.reroutedTotal += 1
+        }
+      }
+    }
+  }
+
+  /** true when the hop the vehicle is physically driving right now is closed */
+  private onClosedHop(v: Vehicle): boolean {
+    if (v.idx + 1 >= v.route.length) return false
+    const l = this.net.linkBetween(v.route[v.idx], v.route[v.idx + 1])
+    return !!l && l.blocked
+  }
+
   private forceReroute(a: number, b: number) {
     let count = 0
     for (const v of this.vehicles) {
       if (v.emergency) continue
+      // a vehicle already on the closed hop is handled by enforceClosures();
+      // re-planning it here would keep that hop as the first leg of the new route
+      if (this.onClosedHop(v)) continue
       let touches = false
       for (let k = v.idx; k < v.route.length - 1; k++) {
         if (
