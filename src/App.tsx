@@ -10,6 +10,7 @@ import { Inspector } from './components/Inspector'
 import { Benchmark } from './components/Benchmark'
 import { BeforeAfter } from './components/BeforeAfter'
 import { EventFeed } from './components/EventFeed'
+import { SolutionStrip } from './components/SolutionStrip'
 import { Tag } from './components/ui'
 import { pad2 } from './sim/network'
 
@@ -58,6 +59,9 @@ export default function App() {
       <Header snap={snap} />
 
       <main className="mx-auto flex w-full max-w-[2100px] flex-col gap-4 px-3 pb-6 pt-3 xl:px-5">
+        {/* ============ PROBLEM → AI SOLUTION → RESULT (5-second read) ============= */}
+        <SolutionStrip snap={snap} />
+
         {/* ================= ROW 1 — controls · live city · inspector ================ */}
         <SectionTitle
           id="live"
@@ -99,9 +103,40 @@ export default function App() {
               <GridToolbar view={view} setView={setView} selected={selected} />
             </div>
 
-            {/* square, responsive viewport → all 36 nodes fit, nothing is cropped */}
+            {/* live readout — kept OUTSIDE the canvas so it can never cover a node */}
+            <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-edge-soft px-3.5 py-1.5">
+              <span className="font-mono text-3xs font-black tracking-[0.16em] text-ink-faint">
+                NETWORK STATE
+              </span>
+              <span className="font-mono text-2xs font-bold text-ink">
+                {snap.vehicleCount} veh · {snap.health.critical} critical · {snap.health.high} high
+              </span>
+              <span className="font-mono text-2xs text-ink-dim">
+                avg wait {snap.ai.avgWait.toFixed(0)}s · imbalance {(snap.ai.gini * 100).toFixed(0)}%
+              </span>
+              {selected !== null && (
+                <span className="font-mono text-2xs font-black text-accent-cyan">
+                  ▸ INSPECTING NODE {pad2(selected)}
+                </span>
+              )}
+              <span className="ml-auto font-mono text-3xs font-bold tracking-[0.12em] text-ink-faint">
+                {view.zoom > 1.02
+                  ? `DETAIL VIEW ${Math.round(view.zoom * 100)}% · drag to pan · FIT to reset`
+                  : 'FULL CITY VIEW · ALL 36 INTERSECTIONS'}
+              </span>
+            </div>
+
+            {/*
+             * Square viewport for the hero map.
+             * The side is capped by the viewport HEIGHT as well as the column
+             * width, so the bottom row (31–36) is never pushed below the fold
+             * at 100% / FIT.
+             */}
             <div className="p-3">
-              <div className="relative mx-auto aspect-square w-full max-w-[900px] overflow-hidden rounded-md border border-edge-soft bg-base-900">
+              <div
+                className="relative mx-auto aspect-square w-full overflow-hidden rounded-md border border-edge-soft bg-base-900"
+                style={{ maxWidth: 'min(860px, max(460px, calc(100vh - 270px)))' }}
+              >
                 <CityCanvas
                   selected={selected}
                   onSelect={onSelect}
@@ -109,43 +144,6 @@ export default function App() {
                   view={view}
                   onViewChange={setView}
                 />
-
-                <div className="pointer-events-none absolute left-3 top-3 rounded-md border border-edge bg-base-900/85 px-2.5 py-2">
-                  <div className="font-mono text-3xs font-black tracking-[0.14em] text-ink-faint">
-                    NETWORK STATE
-                  </div>
-                  <div className="font-mono text-2xs font-bold text-ink">
-                    {snap.vehicleCount} veh · {snap.health.critical} critical · {snap.health.high} high
-                  </div>
-                  <div className="font-mono text-2xs text-ink-dim">
-                    avg wait {snap.ai.avgWait.toFixed(0)}s · imbalance {(snap.ai.gini * 100).toFixed(0)}%
-                  </div>
-                  {selected && (
-                    <div className="mt-0.5 font-mono text-2xs font-black text-accent-cyan">
-                      ▸ INSPECTING NODE {pad2(selected)}
-                    </div>
-                  )}
-                </div>
-
-                {view.zoom > 1.02 && (
-                  <div className="pointer-events-none absolute right-3 top-3 rounded-md border border-accent-cyan/40 bg-base-900/85 px-2.5 py-1.5">
-                    <div className="font-mono text-2xs font-black text-accent-cyan">
-                      ZOOM {Math.round(view.zoom * 100)}%
-                    </div>
-                    <div className="font-mono text-3xs text-ink-faint">drag to pan · Fit to reset</div>
-                  </div>
-                )}
-
-                <div className="pointer-events-none absolute bottom-2 left-3 right-3 flex flex-wrap gap-x-3 gap-y-1 rounded-md border border-edge bg-base-900/85 px-2.5 py-1.5">
-                  {legend.map(([c, l]) => (
-                    <span key={l} className="flex items-center gap-1.5">
-                      <span className="h-2.5 w-2.5 rounded-sm" style={{ background: c }} />
-                      <span className="font-mono text-3xs font-bold tracking-[0.08em] text-ink-faint">
-                        {l}
-                      </span>
-                    </span>
-                  ))}
-                </div>
 
                 {!snap.running && (
                   <div className="pointer-events-none absolute inset-0 grid place-content-center">
@@ -155,6 +153,18 @@ export default function App() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* legend — below the map, never on top of the bottom row of nodes */}
+            <div className="flex shrink-0 flex-wrap gap-x-3 gap-y-1 border-t border-edge-soft px-3.5 py-2">
+              {legend.map(([c, l]) => (
+                <span key={l} className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: c }} />
+                  <span className="font-mono text-3xs font-bold tracking-[0.08em] text-ink-faint">
+                    {l}
+                  </span>
+                </span>
+              ))}
             </div>
           </section>
 

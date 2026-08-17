@@ -22,6 +22,9 @@ const ROWS: RowDef[] = [
 
 const fmtOf = (r: RowDef) => r.fmt ?? ((v: number) => String(v))
 
+/** The five headline metrics of the SMART AI ADVANTAGE card, in presentation order. */
+const ADVANTAGE: (keyof Metrics)[] = ['avgWait', 'maxQueue', 'throughput', 'avgSpeed', 'gini']
+
 function pct(fixed: number, ai: number, better: 'lower' | 'higher') {
   if (!isFinite(fixed) || fixed === 0) return null
   const change = ((ai - fixed) / Math.abs(fixed)) * 100
@@ -30,9 +33,12 @@ function pct(fixed: number, ai: number, better: 'lower' | 'higher') {
 }
 
 export function Benchmark({ snap }: { snap: Snapshot }) {
-  const headline = ROWS.slice(0, 5)
-    .map((r) => ({ r, p: pct(snap.fixed[r.key], snap.ai[r.key], r.better) }))
-    .filter((x) => x.p)
+  const headline = ADVANTAGE.map((key) => {
+    const r = ROWS.find((x) => x.key === key)!
+    return { r, p: pct(snap.fixed[r.key], snap.ai[r.key], r.better) }
+  }).filter((x) => x.p)
+
+  const wins = headline.filter((x) => x.p!.good).length
 
   return (
     <Panel
@@ -40,31 +46,54 @@ export function Benchmark({ snap }: { snap: Snapshot }) {
       accent="green"
       right={<Tag tone="ok">SMART AI OUTPERFORMS FIXED-TIME</Tag>}
     >
-      {/* headline deltas first — the number an evaluator should see from across the room */}
-      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
-        {headline.map(({ r, p }) => (
-          <div
-            key={r.label}
-            className={`rounded-md border px-3 py-2.5 ${
-              p!.good ? 'border-signal-green/40 bg-signal-green/10' : 'border-signal-amber/40 bg-signal-amber/10'
-            }`}
-          >
-            <div className="text-3xs font-bold uppercase tracking-[0.14em] text-ink-faint">
-              {r.label}
-            </div>
+      {/* ---- SMART AI ADVANTAGE — the numbers an evaluator reads from across the room ---- */}
+      <div className="mb-3 rounded-lg border border-signal-green/45 bg-signal-green/[0.07] p-3">
+        <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h3 className="font-mono text-base font-black uppercase tracking-[0.18em] text-signal-green">
+            Smart AI Advantage
+          </h3>
+          <p className="text-3xs font-bold uppercase tracking-[0.16em] text-ink-faint">
+            measured live vs the fixed-time baseline · same city · same demand
+          </p>
+          <Tag tone="ok" className="ml-auto">
+            {wins} / {headline.length} metrics improved
+          </Tag>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+          {headline.map(({ r, p }) => (
             <div
-              className={`font-mono text-3xl font-black leading-none tracking-tight ${
-                p!.good ? 'text-signal-green' : 'text-signal-amber'
+              key={r.label}
+              className={`rounded-md border px-3 py-2.5 ${
+                p!.good
+                  ? 'border-signal-green/45 bg-signal-green/10'
+                  : 'border-signal-amber/40 bg-signal-amber/10'
               }`}
             >
-              {p!.change > 0 ? '↑' : '↓'}
-              {Math.abs(p!.change).toFixed(1)}%
+              <div className="text-3xs font-bold uppercase tracking-[0.14em] text-ink-faint">
+                {r.label}
+              </div>
+              <div
+                className={`font-mono text-3xl font-black leading-none tracking-tight ${
+                  p!.good ? 'text-signal-green' : 'text-signal-amber'
+                }`}
+              >
+                {p!.change > 0 ? '↑' : '↓'}
+                {Math.abs(p!.change).toFixed(1)}%
+              </div>
+              <div className="mt-1 font-mono text-3xs text-ink-faint">
+                {fmtOf(r)(snap.fixed[r.key])} → {fmtOf(r)(snap.ai[r.key])} {r.unit}
+              </div>
+              <div className="mt-0.5 text-3xs text-ink-faint/80">
+                {r.key === 'gini'
+                  ? 'lower = more evenly distributed traffic'
+                  : r.better === 'lower'
+                    ? 'lower is better'
+                    : 'higher is better'}
+              </div>
             </div>
-            <div className="mt-1 font-mono text-3xs text-ink-faint">
-              {fmtOf(r)(snap.fixed[r.key])} → {fmtOf(r)(snap.ai[r.key])} {r.unit}
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">

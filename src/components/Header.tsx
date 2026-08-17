@@ -9,6 +9,7 @@ const fmtClock = (t: number) => {
 
 /** In-page navigation so the presenter can jump straight to any section. */
 const NAV: [string, string][] = [
+  ['how', 'HOW IT WORKS'],
   ['live', '01 LIVE'],
   ['analysis', '02 AI'],
   ['benchmark', '03 BENCHMARK'],

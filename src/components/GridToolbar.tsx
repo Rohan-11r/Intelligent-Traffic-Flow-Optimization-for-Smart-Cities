@@ -17,6 +17,8 @@ export function GridToolbar({
   selected: number | null
 }) {
   const pctLabel = `${Math.round(view.zoom * 100)}%`
+  /** 100% is defined as FIT: the whole 6x6 city, all 36 intersections, nothing cropped. */
+  const atFit = Math.abs(view.zoom - 1) < 0.02
   const zoomAtCentre = (factor: number) =>
     setView(clampView({ ...view, zoom: view.zoom * factor }))
 
@@ -47,7 +49,10 @@ export function GridToolbar({
         −
       </button>
 
-      <span className="grid h-8 w-16 place-content-center rounded-md border border-accent-cyan/40 bg-accent-cyan/10 font-mono text-2xs font-black tabular-nums text-accent-cyan">
+      <span
+        className="grid h-8 w-16 place-content-center rounded-md border border-accent-cyan/40 bg-accent-cyan/10 font-mono text-2xs font-black tabular-nums text-accent-cyan"
+        title="100% = FIT — the entire 6×6 city, all 36 intersections"
+      >
         {pctLabel}
       </span>
 
@@ -62,7 +67,12 @@ export function GridToolbar({
         +
       </button>
 
-      <button type="button" className={btn} onClick={() => setView(FIT_VIEW)} title="Fit the whole 6×6 grid">
+      <button
+        type="button"
+        className={`${btn} ${atFit ? 'border-accent-cyan/60 text-accent-cyan' : ''}`}
+        onClick={() => setView(FIT_VIEW)}
+        title="Fit — show the entire 6×6 city (all 36 intersections)"
+      >
         Fit
       </button>
 
@@ -80,8 +90,12 @@ export function GridToolbar({
         Focus {selected !== null ? pad2(selected) : '—'}
       </button>
 
+      <span className="font-mono text-3xs font-bold uppercase tracking-[0.1em] text-ink-faint">
+        {atFit ? '100% = full city view' : 'detail inspection'}
+      </span>
+
       <span className="hidden font-mono text-3xs text-ink-faint 2xl:inline">
-        ctrl+wheel = zoom · drag = pan · double-click a node = focus
+        · ctrl+wheel = zoom · drag = pan · double-click a node = focus
       </span>
     </div>
   )
