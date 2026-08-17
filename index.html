@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      name="description"
+      content="AI City Traffic Control Center - city-wide real-time adaptive traffic management across a 6x6 grid of 36 signalized intersections."
+    />
+    <title>AI City Traffic Control Center</title>
+    <style>
+      /* min-height, NOT height: the dashboard is a long scrollable document.
+         A fixed 100% height here would clamp #root to the viewport and make
+         the lower sections unreachable. */
+      html,
+      body,
+      #root {
+        min-height: 100%;
+        margin: 0;
+        background: #05070c;
+      }
+      #boot {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-content: center;
+        color: #9aa8bf;
+        font: 500 12px/1.4 ui-monospace, Consolas, monospace;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"><div id="boot">Initialising traffic control center…</div></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
